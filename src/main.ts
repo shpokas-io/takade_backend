@@ -1,14 +1,20 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import * as dotenv from 'dotenv';
 
 async function bootstrap() {
-  dotenv.config();
   const app = await NestFactory.create(AppModule);
+  
+  // Enable CORS
   app.enableCors({
     origin: process.env.FRONTEND_URL,
     credentials: true,
   });
-  await app.listen(process.env.PORT);
+
+  // Set global prefix
+  app.setGlobalPrefix('api');
+
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+  console.log(`Application is running on: http://localhost:${port}`);
 }
 bootstrap();

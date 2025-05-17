@@ -1,52 +1,85 @@
 import { Injectable } from '@nestjs/common';
-import { SupabaseService } from '../supabase/supabase.service';
+import { createClient } from '@supabase/supabase-js';
+import { Database } from '../types/database.types';
 import { CourseSectionDto } from './dto/course-section.dto';
 import { LessonDto } from './dto/lesson.dto';
 
 @Injectable()
 export class CoursesService {
-  constructor(private readonly sb: SupabaseService) {}
+  private supabase;
 
-  async getCourseSections(): Promise<CourseSectionDto[]> {
-    const { data: sections, error: secErr } = await this.sb.supabase
-      .from('sections')
-      .select('*')
-      .order('order_index');
-    if (secErr) throw secErr;
+  constructor() {
+    this.supabase = createClient<Database>(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_KEY!
+    );
+  }
 
-    const result: CourseSectionDto[] = [];
-    for (const s of sections) {
-      const { data: lessons, error: lesErr } = await this.sb.supabase
-        .from('lessons')
-        .select(`*, materials (*)`)
-        .eq('section_id', s.id)
-        .order('order_index');
-      if (lesErr) throw lesErr;
+  async getCourseData() {
+    const { data: sections, error: sectionsError } = await this.supabase
+      .from("sections")
+      .select("*")
+      .order("order_index");
 
-      result.push({
-        sectionTitle: s.title,
-        description: s.description,
-        lessons: lessons.map((l) => new LessonDto(l)),
+    if (sectionsError) throw sectionsError;
+
+    const courseData = [];
+
+    for (const section of sections) {
+      const { data: lessons, error: lessonsError } = await this.supabase
+        .from("lessons")
+        .select(
+          `
+          *,
+          materials (*)
+        `
+        )
+        .eq("section_id", section.id)
+        .order("order_index");
+
+      if (lessonsError) throw lessonsError;
+
+      const formattedLessons = lessons.map((lesson) => ({
+        slug: lesson.slug,
+        title: lesson.title,
+        description: lesson.description,
+        videoThumbnail: lesson.video_thumbnail,
+        videoUrl: lesson.video_url,
+        materials: lesson.materials?.map((material: { name: any; url: any }) => ({
+          name: material.name,
+          url: material.url,
+        })),
+      }));
+
+      courseData.push({
+        sectionTitle: section.title,
+        description: section.description,
+        lessons: formattedLessons,
       });
     }
-    return result;
+
+    return courseData;
   }
 
-  async getStartHere(): Promise<LessonDto | null> {
-    const { data: lesson, error } = await this.sb.supabase
-      .from('lessons')
-      .select(`*, materials (*)`)
-      .eq('order_index', 0)
+  async getStartHereLesson() {
+    const { data, error } = await this.supabase
+      .from("lessons")
+      .select("*")
+      .eq("is_start_here", true)
       .single();
-    return error ? null : new LessonDto(lesson);
+
+    if (error) throw error;
+    return data;
   }
 
-  async getLessonBySlug(slug: string): Promise<LessonDto | null> {
-    const { data: lesson, error } = await this.sb.supabase
-      .from('lessons')
-      .select(`*, materials (*)`)
-      .eq('slug', slug)
+  async getLessonBySlug(slug: string) {
+    const { data, error } = await this.supabase
+      .from("lessons")
+      .select("*")
+      .eq("slug", slug)
       .single();
-    return error ? null : new LessonDto(lesson);
+
+    if (error) throw error;
+    return data;
   }
 }

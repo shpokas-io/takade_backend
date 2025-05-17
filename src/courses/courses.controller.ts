@@ -1,19 +1,22 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { CoursesService } from './courses.service';
-import { CourseSectionDto } from './dto/course-section.dto';
-import { LessonDto } from './dto/lesson.dto';
 
 @Controller('courses')
 export class CoursesController {
-  constructor(private readonly cs: CoursesService) {}
+  constructor(private readonly coursesService: CoursesService) {}
 
-  @Get() getAll(): Promise<CourseSectionDto[]> {
-    return this.cs.getCourseSections();
+  @Get()
+  async getCourseData() {
+    return this.coursesService.getCourseData();
   }
-  @Get('start') getStart(): Promise<LessonDto | null> {
-    return this.cs.getStartHere();
+
+  @Get('start-here')
+  async getStartHereLesson() {
+    return this.coursesService.getStartHereLesson();
   }
-  @Get(':slug') getBySlug(@Param('slug') slug: string) {
-    return this.cs.getLessonBySlug(slug);
+
+  @Get('lesson/:slug')
+  async getLessonBySlug(@Param('slug') slug: string) {
+    return this.coursesService.getLessonBySlug(slug);
   }
 }
