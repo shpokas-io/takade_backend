@@ -1,3 +1,5 @@
+// Authentication logic removed. To be reimplemented later.
+
 import { Controller, Get, Post, Body, Param } from '@nestjs/common';
 import { AuthService } from './auth.service';
 

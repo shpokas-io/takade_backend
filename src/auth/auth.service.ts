@@ -1,3 +1,5 @@
+// Authentication logic removed. To be reimplemented later.
+
 import { Injectable } from '@nestjs/common';
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '../types/database.types';

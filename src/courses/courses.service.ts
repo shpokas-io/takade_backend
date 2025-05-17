@@ -65,7 +65,8 @@ export class CoursesService {
     const { data, error } = await this.supabase
       .from("lessons")
       .select("*")
-      .eq("is_start_here", true)
+      .order("order_index")
+      .limit(1)
       .single();
 
     if (error) throw error;
