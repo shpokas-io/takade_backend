@@ -1,23 +1,60 @@
 // Authentication logic removed. To be reimplemented later.
 
-import { Injectable } from '@nestjs/common';
-import { createClient } from '@supabase/supabase-js';
-import { Database } from '../types/database.types';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { SupabaseService } from '../supabase/supabase.service';
+import { User } from './types/user.type';
 
 @Injectable()
 export class AuthService {
-  private supabase;
+  constructor(private readonly supabaseService: SupabaseService) {}
 
-  constructor() {
-    this.supabase = createClient<Database>(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_KEY!
-    );
+  async getGoogleAuthUrl() {
+    try {
+      const { data, error } = await this.supabaseService.supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${process.env.BACKEND_URL}/auth/google/callback`,
+        },
+      });
+
+      if (error) throw error;
+      return { url: data.url };
+    } catch (error) {
+      console.error('Error getting Google auth URL:', error);
+      throw error;
+    }
+  }
+
+  async handleGoogleCallback(code: string) {
+    try {
+      const { data: { session }, error } = await this.supabaseService.supabase.auth.exchangeCodeForSession(code);
+      if (error || !session) {
+        throw new UnauthorizedException('Failed to exchange code for session');
+      }
+
+      const user = {
+        id: session.user.id,
+        email: session.user.email!,
+        hasCourseAccess: false
+      };
+
+      // Check course access
+      const hasAccess = await this.checkUserAccess(user.id);
+      user.hasCourseAccess = hasAccess;
+
+      return {
+        token: session.access_token,
+        user
+      };
+    } catch (error) {
+      console.error('Error handling Google callback:', error);
+      throw error;
+    }
   }
 
   async verifySession(token: string): Promise<boolean> {
     try {
-      const { data: { user }, error } = await this.supabase.auth.getUser(token);
+      const { data: { user }, error } = await this.supabaseService.supabase.auth.getUser(token);
       if (error || !user) {
         return false;
       }
@@ -28,9 +65,43 @@ export class AuthService {
     }
   }
 
+  async getUserFromToken(token: string): Promise<User> {
+    try {
+      const { data: { user }, error } = await this.supabaseService.supabase.auth.getUser(token);
+      if (error || !user) {
+        throw new UnauthorizedException('Invalid token');
+      }
+      return {
+        id: user.id,
+        email: user.email!,
+        hasCourseAccess: false // Will be updated by checkUserAccess
+      };
+    } catch (error) {
+      throw new UnauthorizedException('Invalid token');
+    }
+  }
+
+  async getUserProfile(userId: string): Promise<User> {
+    try {
+      const { data: user, error } = await this.supabaseService.supabase.auth.admin.getUserById(userId);
+      if (error || !user) {
+        throw new UnauthorizedException('User not found');
+      }
+
+      const hasAccess = await this.checkUserAccess(userId);
+      return {
+        id: user.id,
+        email: user.email!,
+        hasCourseAccess: hasAccess
+      };
+    } catch (error) {
+      throw new UnauthorizedException('Failed to get user profile');
+    }
+  }
+
   async checkUserAccess(userId: string): Promise<boolean> {
     try {
-      const { data: userCourse, error } = await this.supabase
+      const { data: userCourse, error } = await this.supabaseService.supabase
         .from('user_courses')
         .select('has_access')
         .eq('user_id', userId)
@@ -50,7 +121,7 @@ export class AuthService {
 
   async updateCourseAccess(userId: string, hasAccess: boolean): Promise<void> {
     try {
-      const { data: existingRecord, error: checkError } = await this.supabase
+      const { data: existingRecord, error: checkError } = await this.supabaseService.supabase
         .from('user_courses')
         .select('id, has_access')
         .eq('user_id', userId)
@@ -61,12 +132,12 @@ export class AuthService {
       }
 
       if (!existingRecord) {
-        const { error } = await this.supabase
+        const { error } = await this.supabaseService.supabase
           .from('user_courses')
           .insert([{ user_id: userId, has_access: hasAccess }]);
         if (error) throw error;
       } else {
-        const { error } = await this.supabase
+        const { error } = await this.supabaseService.supabase
           .from('user_courses')
           .update({ has_access: hasAccess })
           .eq('user_id', userId);
@@ -78,9 +149,13 @@ export class AuthService {
     }
   }
 
-  async getSession(userId: string) {
-    const { data: session, error } = await this.supabase.auth.admin.getUserById(userId);
-    if (error) throw error;
-    return session;
+  async logout(userId: string): Promise<void> {
+    try {
+      const { error } = await this.supabaseService.supabase.auth.admin.signOut(userId);
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error logging out:', error);
+      throw error;
+    }
   }
 } 
