@@ -4,6 +4,12 @@ import { Controller, Get, Post, Body, Param, UseGuards, Req, UnauthorizedExcepti
 import { AuthService } from './auth.service';
 import { AuthGuard } from './auth.guard';
 import { Request, Response } from 'express';
+import { User } from './types/user.type';
+
+// Extend Express Request type to include user
+interface RequestWithUser extends Request {
+  user: User;
+}
 
 @Controller('auth')
 export class AuthController {
@@ -38,7 +44,7 @@ export class AuthController {
 
   @Get('profile')
   @UseGuards(AuthGuard)
-  async getProfile(@Req() req: Request) {
+  async getProfile(@Req() req: RequestWithUser) {
     return this.authService.getUserProfile(req.user.id);
   }
 
@@ -59,7 +65,7 @@ export class AuthController {
 
   @Post('logout')
   @UseGuards(AuthGuard)
-  async logout(@Req() req: Request) {
+  async logout(@Req() req: RequestWithUser) {
     return this.authService.logout(req.user.id);
   }
 } 

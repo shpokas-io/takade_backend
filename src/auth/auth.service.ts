@@ -32,7 +32,7 @@ export class AuthService {
         throw new UnauthorizedException('Failed to exchange code for session');
       }
 
-      const user = {
+      const user: User = {
         id: session.user.id,
         email: session.user.email!,
         hasCourseAccess: false
@@ -54,8 +54,8 @@ export class AuthService {
 
   async verifySession(token: string): Promise<boolean> {
     try {
-      const { data: { user }, error } = await this.supabaseService.supabase.auth.getUser(token);
-      if (error || !user) {
+      const { data, error } = await this.supabaseService.supabase.auth.getUser(token);
+      if (error || !data.user) {
         return false;
       }
       return true;
@@ -67,13 +67,13 @@ export class AuthService {
 
   async getUserFromToken(token: string): Promise<User> {
     try {
-      const { data: { user }, error } = await this.supabaseService.supabase.auth.getUser(token);
-      if (error || !user) {
+      const { data, error } = await this.supabaseService.supabase.auth.getUser(token);
+      if (error || !data.user) {
         throw new UnauthorizedException('Invalid token');
       }
       return {
-        id: user.id,
-        email: user.email!,
+        id: data.user.id,
+        email: data.user.email!,
         hasCourseAccess: false // Will be updated by checkUserAccess
       };
     } catch (error) {
@@ -83,15 +83,15 @@ export class AuthService {
 
   async getUserProfile(userId: string): Promise<User> {
     try {
-      const { data: user, error } = await this.supabaseService.supabase.auth.admin.getUserById(userId);
-      if (error || !user) {
+      const { data, error } = await this.supabaseService.supabase.auth.admin.getUserById(userId);
+      if (error || !data.user) {
         throw new UnauthorizedException('User not found');
       }
 
       const hasAccess = await this.checkUserAccess(userId);
       return {
-        id: user.id,
-        email: user.email!,
+        id: data.user.id,
+        email: data.user.email!,
         hasCourseAccess: hasAccess
       };
     } catch (error) {
