@@ -10,11 +10,6 @@ export class CoursesController {
     return this.coursesService.getCourseData();
   }
 
-  @Get('start-here')
-  async getStartHereLesson() {
-    return this.coursesService.getStartHereLesson();
-  }
-
   @Get('lesson/:slug')
   async getLessonBySlug(@Param('slug') slug: string) {
     return this.coursesService.getLessonBySlug(slug);

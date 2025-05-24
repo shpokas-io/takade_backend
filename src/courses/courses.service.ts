@@ -61,18 +61,6 @@ export class CoursesService {
     return courseData;
   }
 
-  async getStartHereLesson() {
-    const { data, error } = await this.supabase
-      .from("lessons")
-      .select("*")
-      .order("order_index")
-      .limit(1)
-      .single();
-
-    if (error) throw error;
-    return data;
-  }
-
   async getLessonBySlug(slug: string) {
     const { data, error } = await this.supabase
       .from("lessons")
@@ -81,6 +69,12 @@ export class CoursesService {
       .single();
 
     if (error) throw error;
-    return data;
+    if (!data) return null;
+    return {
+      ...data,
+      videoUrl: data.video_url,
+      videoThumbnail: data.video_thumbnail,
+      materials: data.materials,
+    };
   }
 }
