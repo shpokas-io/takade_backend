@@ -13,11 +13,18 @@ export class AuthService {
       const { data, error } = await this.supabaseService.supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${process.env.BACKEND_URL}/auth/google/callback`,
+          redirectTo: process.env.GOOGLE_REDIRECT_URL,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error getting Google auth URL:', error);
+        throw error;
+      }
       return { url: data.url };
     } catch (error) {
       console.error('Error getting Google auth URL:', error);
@@ -28,8 +35,14 @@ export class AuthService {
   async handleGoogleCallback(code: string) {
     try {
       const { data: { session }, error } = await this.supabaseService.supabase.auth.exchangeCodeForSession(code);
-      if (error || !session) {
+      
+      if (error) {
+        console.error('Error exchanging code for session:', error);
         throw new UnauthorizedException('Failed to exchange code for session');
+      }
+      
+      if (!session) {
+        throw new UnauthorizedException('No session returned');
       }
 
       const user: User = {
@@ -105,7 +118,7 @@ export class AuthService {
         .from('user_courses')
         .select('has_access')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error checking user access:', error);

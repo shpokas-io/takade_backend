@@ -9,7 +9,14 @@ export class SupabaseService {
     const url = process.env.SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!url || !key) throw new Error('Missing Supabase env vars');
-    this.client = createClient(url, key);
+    
+    this.client = createClient(url, key, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true
+      }
+    });
   }
 
   get supabase(): SupabaseClient {
