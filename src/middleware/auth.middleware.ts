@@ -12,11 +12,19 @@ export class AuthMiddleware implements NestMiddleware {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
     console.log('AuthMiddleware initialized with Supabase client');
+    console.log('Supabase URL:', process.env.SUPABASE_URL);
+    console.log('Service role key available:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
   }
 
   async use(req: Request, res: Response, next: NextFunction) {
     try {
       console.log('Processing request:', req.method, req.path);
+      console.log('Request headers:', {
+        origin: req.headers.origin,
+        'user-agent': req.headers['user-agent'],
+        authorization: req.headers.authorization ? 'Present' : 'Missing'
+      });
+      
       const authHeader = req.headers.authorization;
       
       if (!authHeader) {
@@ -37,12 +45,12 @@ export class AuthMiddleware implements NestMiddleware {
 
       if (error) {
         console.error('Token validation error:', error);
-        throw new UnauthorizedException('Invalid token');
+        throw new UnauthorizedException(`Invalid token: ${error.message}`);
       }
 
       if (!user) {
         console.log('No user found for token');
-        throw new UnauthorizedException('Invalid token');
+        throw new UnauthorizedException('Invalid token - no user found');
       }
 
       console.log('Token validated successfully for user:', user.id);
@@ -51,7 +59,21 @@ export class AuthMiddleware implements NestMiddleware {
       next();
     } catch (error) {
       console.error('Authentication failed:', error);
-      throw new UnauthorizedException('Authentication failed');
+      
+      // Send proper error response
+      if (error instanceof UnauthorizedException) {
+        res.status(401).json({
+          statusCode: 401,
+          message: error.message,
+          error: 'Unauthorized'
+        });
+      } else {
+        res.status(500).json({
+          statusCode: 500,
+          message: 'Internal server error during authentication',
+          error: 'Internal Server Error'
+        });
+      }
     }
   }
 } 
