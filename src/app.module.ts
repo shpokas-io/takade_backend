@@ -1,7 +1,8 @@
-import { Module, Controller, Get } from '@nestjs/common';
+import { Module, Controller, Get, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { CoursesModule } from './courses/courses.module';
 import { SupabaseModule } from './supabase.module';
 import { AuthModule } from './auth/auth.module';
+import { AuthMiddleware } from './middleware/auth.middleware';
 
 @Controller()
 export class HealthController {
@@ -21,4 +22,12 @@ export class HealthController {
   controllers: [HealthController],
   providers: [],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // Apply the auth middleware to all routes except /health
+    consumer
+      .apply(AuthMiddleware)
+      .exclude('health')
+      .forRoutes('*');
+  }
+}

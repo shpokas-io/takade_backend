@@ -1,16 +1,11 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
-import { AuthMiddleware } from '../middleware/auth.middleware';
+import { Module } from '@nestjs/common';
+import { AuthController } from './auth.controller';
+import { CommonModule } from '../common/common.module';
 
 @Module({
+  imports: [CommonModule],
+  controllers: [AuthController],
   providers: [],
   exports: [],
 })
-export class AuthModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    // Apply the auth middleware to all routes except /auth and /health
-    consumer
-      .apply(AuthMiddleware)
-      .exclude('auth/(.*)', 'health')
-      .forRoutes('*');
-  }
-} 
+export class AuthModule {} 

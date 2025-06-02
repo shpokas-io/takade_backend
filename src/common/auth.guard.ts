@@ -32,7 +32,7 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid token');
     }
 
-    // Check if session exists, if not create one for valid users
+    // Check if session exists and is valid
     if (!this.sessionService.isSessionValid(user.id)) {
       this.logger.log(`Creating new session for user ${user.id}`);
       this.sessionService.updateSession(user.id);
