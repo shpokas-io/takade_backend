@@ -8,4 +8,4 @@ import { CommonModule } from '../common/common.module';
   providers: [],
   exports: [],
 })
-export class AuthModule {} 
+export class AuthModule {}

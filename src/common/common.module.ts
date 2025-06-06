@@ -8,4 +8,4 @@ import { AuthGuard } from './auth.guard';
   providers: [SupabaseService, SessionService, AuthGuard],
   exports: [SupabaseService, SessionService, AuthGuard],
 })
-export class CommonModule {} 
+export class CommonModule {}

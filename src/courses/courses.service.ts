@@ -1,80 +1,80 @@
-import { Injectable } from '@nestjs/common';
-import { createClient } from '@supabase/supabase-js';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../types/database.types';
-import { CourseSectionDto } from './dto/course-section.dto';
-import { LessonDto } from './dto/lesson.dto';
 
 @Injectable()
 export class CoursesService {
-  private supabase;
+  private readonly supabase: SupabaseClient<Database>;
 
   constructor() {
-    this.supabase = createClient<Database>(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_KEY!
-    );
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_KEY;
+
+    if (!url || !key) {
+      throw new InternalServerErrorException('Missing Supabase credentials');
+    }
+
+    this.supabase = createClient<Database>(url, key);
   }
 
   async getCourseData() {
     const { data: sections, error: sectionsError } = await this.supabase
-      .from("sections")
-      .select("*")
-      .order("order_index");
+      .from('sections')
+      .select('*')
+      .order('order_index');
 
-    if (sectionsError) throw sectionsError;
+    if (sectionsError)
+      throw new InternalServerErrorException(sectionsError.message);
+    if (!sections) return [];
 
-    const courseData = [];
+    const courseData = await Promise.all(
+      sections.map(async (section) => {
+        const { data: lessons, error: lessonsError } = await this.supabase
+          .from('lessons')
+          .select(`*, materials (*)`)
+          .eq('section_id', section.id)
+          .order('order_index');
 
-    for (const section of sections) {
-      const { data: lessons, error: lessonsError } = await this.supabase
-        .from("lessons")
-        .select(
-          `
-          *,
-          materials (*)
-        `
-        )
-        .eq("section_id", section.id)
-        .order("order_index");
+        if (lessonsError)
+          throw new InternalServerErrorException(lessonsError.message);
 
-      if (lessonsError) throw lessonsError;
-
-      const formattedLessons = lessons.map((lesson) => ({
-        slug: lesson.slug,
-        title: lesson.title,
-        description: lesson.description,
-        videoThumbnail: lesson.video_thumbnail,
-        videoUrl: lesson.video_url,
-        materials: lesson.materials?.map((material: { name: any; url: any }) => ({
-          name: material.name,
-          url: material.url,
-        })),
-      }));
-
-      courseData.push({
-        sectionTitle: section.title,
-        description: section.description,
-        lessons: formattedLessons,
-      });
-    }
+        return {
+          sectionTitle: section.title,
+          description: section.description,
+          lessons:
+            lessons?.map((lesson) => ({
+              slug: lesson.slug,
+              title: lesson.title,
+              description: lesson.description,
+              videoUrl: lesson.video_url,
+              videoThumbnail: lesson.video_thumbnail,
+              materials:
+                lesson.materials?.map(({ name, url }) => ({ name, url })) || [],
+            })) || [],
+        };
+      }),
+    );
 
     return courseData;
   }
 
   async getLessonBySlug(slug: string) {
     const { data, error } = await this.supabase
-      .from("lessons")
-      .select("*")
-      .eq("slug", slug)
+      .from('lessons')
+      .select('*')
+      .eq('slug', slug)
       .single();
 
-    if (error) throw error;
+    if (error) throw new InternalServerErrorException(error.message);
     if (!data) return null;
+
     return {
-      ...data,
+      slug: data.slug,
+      title: data.title,
+      description: data.description,
       videoUrl: data.video_url,
       videoThumbnail: data.video_thumbnail,
-      materials: data.materials,
+      materials: data.materials || [],
     };
   }
 }
