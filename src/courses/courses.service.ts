@@ -1,80 +1,70 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Database } from '../types/database.types';
+import {
+  Injectable,
+  NotFoundException,
+  InternalServerErrorException,
+} from '@nestjs/common';
+import { SupabaseService } from '../common/supabase.service';
+import { CourseSectionDto } from './dto/course-section.dto';
+import { LessonDto } from './dto/lesson.dto';
 
 @Injectable()
 export class CoursesService {
-  private readonly supabase: SupabaseClient<Database>;
+  constructor(private readonly supabaseService: SupabaseService) {}
 
-  constructor() {
-    const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_KEY;
+  async getCourseData(): Promise<CourseSectionDto[]> {
+    const { data: sections, error: sectionsError } =
+      await this.supabaseService.supabase
+        .from('sections')
+        .select('*')
+        .order('order_index');
 
-    if (!url || !key) {
-      throw new InternalServerErrorException('Missing Supabase credentials');
+    if (sectionsError) {
+      throw new InternalServerErrorException('Failed to fetch course sections');
     }
 
-    this.supabase = createClient<Database>(url, key);
-  }
-
-  async getCourseData() {
-    const { data: sections, error: sectionsError } = await this.supabase
-      .from('sections')
-      .select('*')
-      .order('order_index');
-
-    if (sectionsError)
-      throw new InternalServerErrorException(sectionsError.message);
-    if (!sections) return [];
+    if (!sections?.length) {
+      return [];
+    }
 
     const courseData = await Promise.all(
       sections.map(async (section) => {
-        const { data: lessons, error: lessonsError } = await this.supabase
-          .from('lessons')
-          .select(`*, materials (*)`)
-          .eq('section_id', section.id)
-          .order('order_index');
+        const { data: lessons, error: lessonsError } =
+          await this.supabaseService.supabase
+            .from('lessons')
+            .select('*, materials (*)')
+            .eq('section_id', section.id)
+            .order('order_index');
 
-        if (lessonsError)
-          throw new InternalServerErrorException(lessonsError.message);
+        if (lessonsError) {
+          throw new InternalServerErrorException('Failed to fetch lessons');
+        }
 
-        return {
-          sectionTitle: section.title,
-          description: section.description,
-          lessons:
-            lessons?.map((lesson) => ({
-              slug: lesson.slug,
-              title: lesson.title,
-              description: lesson.description,
-              videoUrl: lesson.video_url,
-              videoThumbnail: lesson.video_thumbnail,
-              materials:
-                lesson.materials?.map(({ name, url }) => ({ name, url })) || [],
-            })) || [],
-        };
+        return new CourseSectionDto(
+          section.title,
+          section.description,
+          lessons?.map((lesson) => new LessonDto(lesson)) || [],
+        );
       }),
     );
 
     return courseData;
   }
 
-  async getLessonBySlug(slug: string) {
-    const { data, error } = await this.supabase
+  async getLessonBySlug(slug: string): Promise<LessonDto> {
+    const { data, error } = await this.supabaseService.supabase
       .from('lessons')
-      .select('*')
+      .select('*, materials (*)')
       .eq('slug', slug)
       .single();
 
-    if (error) throw new InternalServerErrorException(error.message);
-    if (!data) return null;
+    if (error) {
+      throw new InternalServerErrorException('Failed to fetch lesson');
+    }
 
-    return {
-      slug: data.slug,
-      title: data.title,
-      description: data.description,
-      videoUrl: data.video_url,
-      videoThumbnail: data.video_thumbnail,
-      materials: data.materials || [],
-    };
+    if (!data) {
+      throw new NotFoundException(`Lesson with slug '${slug}' not found`);
+    }
+
+    return new LessonDto(data);
   }
 }

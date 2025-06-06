@@ -1,24 +1,25 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
+import { Database } from '../types/database.types';
+import { getEnvironmentConfig } from '../config/environment';
 
 @Injectable()
 export class SupabaseService {
-  private readonly client: SupabaseClient;
+  private readonly client: SupabaseClient<Database>;
 
   constructor() {
-    const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const config = getEnvironmentConfig();
 
-    if (!url || !key) {
-      throw new InternalServerErrorException('Missing Supabase credentials');
-    }
-
-    this.client = createClient(url, key, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: false,
+    this.client = createClient<Database>(
+      config.supabase.url,
+      config.supabase.serviceRoleKey,
+      {
+        auth: {
+          autoRefreshToken: true,
+          persistSession: false,
+        },
       },
-    });
+    );
   }
 
   async validateToken(
@@ -48,7 +49,7 @@ export class SupabaseService {
     }
   }
 
-  get supabase(): SupabaseClient {
+  get supabase(): SupabaseClient<Database> {
     return this.client;
   }
 }
