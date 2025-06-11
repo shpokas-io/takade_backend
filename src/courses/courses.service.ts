@@ -12,42 +12,33 @@ export class CoursesService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
   async getCourseData(): Promise<CourseSectionDto[]> {
-    const { data: sections, error: sectionsError } =
-      await this.supabaseService.supabase
-        .from('sections')
-        .select('*')
-        .order('order_index');
+    const { data: sectionsWithLessons, error } = await this.supabaseService.supabase
+      .from('sections')
+      .select(`
+        *,
+        lessons (
+          *,
+          materials (*)
+        )
+      `)
+      .order('order_index')
+      .order('lessons(order_index)');
 
-    if (sectionsError) {
-      throw new InternalServerErrorException('Failed to fetch course sections');
+    if (error) {
+      throw new InternalServerErrorException('Failed to fetch course data');
     }
 
-    if (!sections?.length) {
+    if (!sectionsWithLessons?.length) {
       return [];
     }
 
-    const courseData = await Promise.all(
-      sections.map(async (section) => {
-        const { data: lessons, error: lessonsError } =
-          await this.supabaseService.supabase
-            .from('lessons')
-            .select('*, materials (*)')
-            .eq('section_id', section.id)
-            .order('order_index');
-
-        if (lessonsError) {
-          throw new InternalServerErrorException('Failed to fetch lessons');
-        }
-
-        return new CourseSectionDto(
-          section.title,
-          section.description,
-          lessons?.map((lesson) => new LessonDto(lesson)) || [],
-        );
-      }),
+    return sectionsWithLessons.map(section => 
+      new CourseSectionDto(
+        section.title,
+        section.description,
+        section.lessons?.map(lesson => new LessonDto(lesson)) || []
+      )
     );
-
-    return courseData;
   }
 
   async getLessonBySlug(slug: string): Promise<LessonDto> {

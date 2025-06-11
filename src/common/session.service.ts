@@ -13,7 +13,7 @@ export class SessionService {
   private readonly SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
   constructor(private readonly supabaseService: SupabaseService) {
-    setInterval(() => this.cleanupExpiredSessions(), 60 * 1000);
+    setInterval(() => this.cleanupExpiredSessions(), 5 * 60 * 1000);
   }
 
   updateSession(userId: string, refreshToken?: string): void {
