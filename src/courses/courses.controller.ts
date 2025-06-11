@@ -1,8 +1,7 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { CoursesService } from './courses.service';
 import { AuthGuard } from '../common/auth.guard';
-import { CourseSectionDto } from './dto/course-section.dto';
-import { LessonDto } from './dto/lesson.dto';
+import { CourseSectionDto, LessonDto, LessonSlugDto } from './dto';
 
 @Controller('courses')
 @UseGuards(AuthGuard)
@@ -15,7 +14,7 @@ export class CoursesController {
   }
 
   @Get('lesson/:slug')
-  async getLessonBySlug(@Param('slug') slug: string): Promise<LessonDto> {
-    return this.coursesService.getLessonBySlug(slug);
+  async getLessonBySlug(@Param() params: LessonSlugDto): Promise<LessonDto> {
+    return this.coursesService.getLessonBySlug(params.slug);
   }
 }

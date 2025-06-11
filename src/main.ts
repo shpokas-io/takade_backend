@@ -16,6 +16,23 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+      disableErrorMessages: config.nodeEnv === 'production',
+      validationError: {
+        target: false,
+        value: false,
+      },
+      exceptionFactory: (errors) => {
+        const result = errors.map((error) => ({
+          property: error.property,
+          value: error.value,
+          constraints: error.constraints,
+        }));
+        
+        return new ValidationPipe().createExceptionFactory()(result);
+      },
     }),
   );
 
@@ -30,11 +47,15 @@ async function bootstrap() {
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['X-New-Token'],
   });
 
   app.setGlobalPrefix('api');
 
   await app.listen(config.port);
+  
+  console.log(`🚀 Application is running on: http://localhost:${config.port}/api`);
+  console.log(`📚 Environment: ${config.nodeEnv}`);
 }
 
 bootstrap();

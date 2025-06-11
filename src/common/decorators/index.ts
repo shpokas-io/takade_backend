@@ -1,0 +1,1 @@
+export { IsStrongPassword, IsValidSlug } from './validation.decorators'; 
